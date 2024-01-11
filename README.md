@@ -32,7 +32,7 @@ This assignment is designed to assess your software engineering skills in the co
 **Objective:** Develop a FastAPI service to deploy the MobileSam segmentation model, containerize the service with Docker, and ensure efficient interaction with the model on the CPU.
 
 **Background:**
-MobileSam is a machine learning model specialized in image segmentation on CPUs. Your task is to create a microservice that allows users to interact with this model via an API. For reference, you can check out this Hugging Face space to see an example script of prediction. Your service should be based on the `segment_everything` function in the `app.py` file.
+MobileSam is a machine learning model specialized in image segmentation on CPUs. Your task is to create a microservice that allows users to interact with this model via an API. You should find the script `main.py` in this repository, which contains the MobileSam model and a function `segment_everything` that takes an image as input and returns the segmentation result. You can use this function to develop your service.
 
 ## Task Description
 
