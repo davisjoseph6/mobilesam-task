@@ -44,7 +44,7 @@ MobileSam is a machine learning model specialized in image segmentation on CPUs.
   
 - **Documentation:** Provide clear instructions for setting up, running, and interacting with the service in a README.md file.
 
-- **[Bonus]** Docker Familiarity: Containerize your FastAPI service using Docker.
+- **[Bonus]** Docker Familiarity: Containerize your service using Docker.
 
 ## Submission
 
