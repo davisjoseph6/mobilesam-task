@@ -4,7 +4,7 @@ from main import segment_everything
 app = FastAPI()
 
 @app.post("/segment-image")
-async def segment_image(file: UploadFile = File(...))):
+async def segment_image(file: UploadFile = File(...)):
     # Further processing will be done here
     pass
 
