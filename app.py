@@ -1,4 +1,4 @@
-from fastapi iport FastAPI
+from fastapi import FastAPI
 
 
 app = FastAPI()
