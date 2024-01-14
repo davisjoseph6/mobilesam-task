@@ -11,7 +11,7 @@ async def segment_image(file: UploadFile = File(...)):
     contents = await file.read()
 
     # Convert the contents to a byte stream
-    image_strea = io.BytesIO(contents)
+    image_stream = io.BytesIO(contents)
 
     # Open the byte stream as an image object
     image = Image.open(image_stream).convert("RGB")
