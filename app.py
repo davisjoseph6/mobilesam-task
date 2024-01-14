@@ -14,7 +14,7 @@ async def segment_image(file: UploadFile = File(...)):
     image_strea = io.BytesIO(contents)
 
     # Open the byte stream as an image object
-    image = Iage.open(image_stream).convert("RGB")
+    image = Image.open(image_stream).convert("RGB")
 
     # Now, 'image' is a PIL Image object and can be processed
 
