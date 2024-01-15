@@ -37,4 +37,4 @@ async def segment_image(file: UploadFile = File(...)):
 
 @app.get("/")
 def read_root():
-    return {"Hello": "World"}
+    return {"Hello": "Welcome to MobileSam Segmentation Service"}
