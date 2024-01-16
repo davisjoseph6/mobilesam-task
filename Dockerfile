@@ -4,6 +4,12 @@ FROM python:3.10.12-slim
 # Set the working directory in the container
 WORKDIR /usr/src/app
 
+# Install git
+RUN apt-get update && \
+    apt-get install -y git && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 # Copy the current directory contents into the container at /usr/src/app
 COPY . .
 
@@ -17,4 +23,4 @@ EXPOSE 80
 ENV NAME World
 
 # Run app.py when the container launches
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "-port", "80"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80"]
