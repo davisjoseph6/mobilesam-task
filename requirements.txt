@@ -6,3 +6,4 @@ git+https://github.com/dhkim2810/MobileSAM.git
 matplotlib
 uvicorn[standard]
 fastapi
+python-multipart
