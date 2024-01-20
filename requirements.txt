@@ -7,3 +7,5 @@ matplotlib
 uvicorn[standard]
 fastapi
 python-multipart
+pytest>=7.4.4
+requests>=2.26.0
