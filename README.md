@@ -52,9 +52,11 @@ Before you begin, ensure you have met the following requirements:
 
 To run the automated tests for the API, navigate to the project root and execute:
 
-    ```bash
+```bash
     pytest
     ```
+
+
 The test scripts are found in the directory `test`. The images used for testing are the directory `test/test_images`.
 
 2. **Manual Testing with Postman or cURL**
@@ -68,7 +70,7 @@ The test scripts are found in the directory `test`. The images used for testing 
 	- Open Postman and create a new request
 	- Choose POST as the request method
 	- Set the URL to `http://localhost:8000/segment-image`
-	- Under the Headers tab, set Content-Type to multipart/form-data since you'll be uploading a file.
+	- Under the Headers tab, set Content-Type to multipart/form-data.
 	- Under the Body tab, 
 		- select the form-data option.
 		- In the key field, enter `file`
