@@ -44,7 +44,7 @@ Before you begin, ensure you have met the following requirements:
 
 3. **Access the application**
 
-    You can access the application at http://127.0.0.1:8000/docs#/ or http://localhost:8000/docs#/
+    You can access the application at http://127.0.0.1:8000/docs#/ or http://localhost:8000/docs#/ . Head over to the POST tab, and click on 'Try it out'. Upload an image and Execute. Enjoy your new segmented image.
 
 ## Testing
 
