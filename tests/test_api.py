@@ -5,21 +5,23 @@ API_URL = "http://localhost:8000/segment-image"
 def test_segment_image_status_code():
     """Test that the API returns a 200 status code for a valid image file."""
     with open('tests/test_images/valid_image.jpg', 'rb') as file:
-        response = requests.post(API_URL, files={'file': file})
+        files = {'file': ('valid_image.jpg', file, 'image/jpeg')}
+        response = requests.post(API_URL, files=files)
         assert response.status_code == 200
 
 def test_segment_image_response_format():
-    """Test that the API returns data in the expected format."""
+    """Test that the API returns data in the expected format (an image)."""
     with open('tests/test_images/valid_image.jpg', 'rb') as file:
-        response = requests.post(API_URL, files={'file': file})
-        # Replace the below line with the actual keys or data format you expect in response
-        assert 'segmented_image' in response.json()
+        files = {'file': ('valid_image.jpg', file, 'image/jpeg')}
+        response = requests.post(API_URL, files=files)
+        assert response.status_code == 200
+        assert response.headers['Content-Type'] == 'image/png'  # or the appropriate format
 
 def test_segment_image_with_invalid_file():
     """Test the API with an invalid file to check error handling."""
     with open('tests/test_images/invalid_file.txt', 'rb') as file:
-        response = requests.post(API_URL, files={'file': file})
-        # Adjust the status code and message based on your API's error handling
+        files = {'file': ('invalid_file.txt', file, 'text/plain')}
+        response = requests.post(API_URL, files=files)
         assert response.status_code == 400
-        assert response.json()['detail'] == 'Invalid file format.'
+        assert response.json()['detail'] == 'File is not an image or content type is missing.'  # Update the expected message
 
