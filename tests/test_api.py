@@ -23,5 +23,5 @@ def test_segment_image_with_invalid_file():
         files = {'file': ('invalid_file.txt', file, 'text/plain')}
         response = requests.post(API_URL, files=files)
         assert response.status_code == 400
-        assert response.json()['detail'] == 'File is not an image or content type is missing.'  
+        assert response.json()['detail'] == 'File is not an image.'  
 
