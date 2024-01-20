@@ -52,7 +52,7 @@ Before you begin, ensure you have met the following requirements:
 
 To run the automated tests for the API, navigate to the project root and execute
 
-    ```bash
+    ```
     pytest
     ```
 
