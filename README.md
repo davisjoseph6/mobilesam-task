@@ -64,6 +64,7 @@ Before you begin, ensure you have met the following requirements:
 
     ```bash
     curl -X 'POST' 'http://127.0.0.1:8000/segment-image' -H 'accept: application/json' -H 'Content-Type: multipart/form-data' -F 'file=@tests/test_images/valid_image.jpg;type=image/jpeg' --output segmented_image_cURL.png
+    curl -X 'POST' 'http://127.0.0.1:8000/segment-image' -H 'accept: application/json' -H 'Content-Type: multipart/form-data' -F 'file=@tests/test_images/invalid_file.txt'
     ```	
 - Using Postman
 	- Open Postman and create a new request
@@ -74,7 +75,7 @@ Before you begin, ensure you have met the following requirements:
 		- select the form-data option.
 		- In the key field, enter `file`
 		- Set the type to File from the dropdown on the right.
-		- Use the Choose Files button to select an image file from your system.
+		- Use the Choose Files button to select an image file from your system; or from the images can be found in the `test/test_images` directory.
 	- Send the Request
 	- Review the Response 
 
