@@ -50,7 +50,7 @@ Before you begin, ensure you have met the following requirements:
 
 1. Automated testing
 
-To run the automated tests for the API, navigate to the project root and execute:
+To run the automated tests for the API, navigate to the project root and execute
 
     ```bash
     pytest
