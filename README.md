@@ -44,19 +44,26 @@ Before you begin, ensure you have met the following requirements:
 
 3. **Access the application**
 
-    You can access the application at (http://127.0.0.1:8000/docs#/) or (http://localhost:8000/docs#/)
+    You can access the application at http://127.0.0.1:8000/docs#/ or http://localhost:8000/docs#/
 
 ## Testing
 
-1. **Manual Testing with Tools like Postman or cURL**
+1. Automated testing
+
+To run the automated tests for the API, navigate to the project root and execute:
+
+    ```bash
+    pytest
+    ```
+The test scripts are found in the directory `test`. The images used for testing are the directory `test/test_images`.
+
+2. **Manual Testing with Postman or cURL**
 
 - Using cURL:
 
     ```bash
-    curl -X 'POST' 'http://127.0.0.1:8000/segment-image' -H 'accept: application/json' -H 'Content-Type: multipart/form-data' -F 'file=@/path_to_your_image.jpg;type=image/jpeg' --output segmented_image_cURL.png
-    ```
-	- Remember to replace 'path_to_your_image.jpg' with the actual path to your image.
-
+    curl -X 'POST' 'http://127.0.0.1:8000/segment-image' -H 'accept: application/json' -H 'Content-Type: multipart/form-data' -F 'file=@tests/test_images/valid_image.jpg;type=image/jpeg' --output segmented_image_cURL.png
+    ```	
 - Using Postman
 	- Open Postman and create a new request
 	- Choose POST as the request method
@@ -68,11 +75,8 @@ Before you begin, ensure you have met the following requirements:
 		- Set the type to File from the dropdown on the right.
 		- Use the Choose Files button to select an image file from your system.
 	- Send the Request
-	- Review the Response
-
+	- Review the Response 
 
 ## Footnotes
 
-- Submit your code via a GitHub repository link.
-- Include a README file with detailed setup and usage instructions.
-- Provide any necessary scripts or files for testing the API.
+- Fast API service, Docker setup and testing scripts built by [Davis Joseph](https://github.com/davisjoseph6)
