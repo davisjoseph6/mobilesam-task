@@ -53,9 +53,7 @@ Before you begin, ensure you have met the following requirements:
 To run the automated tests for the API, navigate to the project root and execute:
 
 ```bash
-    pytest
-    ```
-
+pytest
 
 The test scripts are found in the directory `test`. The images used for testing are the directory `test/test_images`.
 
