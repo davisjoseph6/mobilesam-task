@@ -15,7 +15,7 @@ def test_segment_image_response_format():
         files = {'file': ('valid_image.jpg', file, 'image/jpeg')}
         response = requests.post(API_URL, files=files)
         assert response.status_code == 200
-        assert response.headers['Content-Type'] == 'image/png'  # or the appropriate format
+        assert response.headers['Content-Type'] == 'image/png'  
 
 def test_segment_image_with_invalid_file():
     """Test the API with an invalid file to check error handling."""
@@ -23,5 +23,5 @@ def test_segment_image_with_invalid_file():
         files = {'file': ('invalid_file.txt', file, 'text/plain')}
         response = requests.post(API_URL, files=files)
         assert response.status_code == 400
-        assert response.json()['detail'] == 'File is not an image or content type is missing.'  # Update the expected message
+        assert response.json()['detail'] == 'File is not an image or content type is missing.'  
 

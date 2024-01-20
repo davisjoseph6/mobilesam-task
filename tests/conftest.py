@@ -8,12 +8,11 @@ def url():
 
 @pytest.fixture
 def image_path():
-    return 'tests/test_images/valid_image.jpg'  # Replace with the path to your actual test image
+    return 'tests/test_images/valid_image.jpg'  
 
 def test_segment_image_api(url, image_path):
     with open(image_path, 'rb') as file:
         files = {'file': (file.name, file, 'image/jpeg')}
         response = requests.post(url, files=files)
         assert response.status_code == 200
-        # Add more assertions based on your test requirements
 
