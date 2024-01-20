@@ -1,4 +1,3 @@
-# test_segmentation_api.py or conftest.py
 import pytest
 import requests
 
