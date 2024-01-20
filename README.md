@@ -75,7 +75,7 @@ Before you begin, ensure you have met the following requirements:
 		- select the form-data option.
 		- In the key field, enter `file`
 		- Set the type to File from the dropdown on the right.
-		- Use the Choose Files button to select an image file from your system; or from the images can be found in the `test/test_images` directory.
+		- Use the Choose Files button to select an image file from your system; or from the images which can be found in the `test/test_images` directory.
 	- Send the Request
 	- Review the Response 
 
