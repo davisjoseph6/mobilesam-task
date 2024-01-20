@@ -1,6 +1,7 @@
-from fastapi import FastAPI, File, UploadFile, Response
+from fastapi import FastAPI, File, UploadFile, HTTPException, status, Response
 from PIL import Image
 import io
+import logging
 from main import segment_everything
 
 app = FastAPI()
