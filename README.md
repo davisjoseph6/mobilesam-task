@@ -3,7 +3,9 @@
 A FastAPI service developed to deploy the MobileSam segmentation model. The service is containerized with Docker, to ensure easy setup and consistency across different environments. It can handle incoming requests asynchronously which can provide better performance and scalability. 
 
 ![dog](https://github.com/user-attachments/assets/2f5f218a-ae91-4c27-a4c0-78c411415633)
+Original Image
 ![output](https://github.com/user-attachments/assets/4a079b96-72cb-445f-a6f4-23d026758ce3)
+Output
 
 
 ## Description
