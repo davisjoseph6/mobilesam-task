@@ -145,8 +145,59 @@ def compute_segment_stats(annotations, image_rgb):
     return stats
 
 
+def compute_segment_stats_in_bbox(annotations, image_rgb, bbox_xywh, min_pixels=1):
+    """
+    Like compute_segment_stats, but only counts pixels INSIDE a given bbox (x,y,w,h).
+    Keeps original segment ids. Skips segments with < min_pixels inside the bbox.
+    """
+    # Normalize image → numpy RGB
+    if hasattr(image_rgb, "convert"):
+        img_np = np.array(image_rgb.convert("RGB"))
+    else:
+        img_np = image_rgb
+
+    H, W = img_np.shape[:2]
+    if bbox_xywh is None:
+        return []
+    x, y, w, h = bbox_xywh
+    x1 = max(0, int(round(x))); y1 = max(0, int(round(y)))
+    x2 = min(W, int(round(x + w))); y2 = min(H, int(round(y + h)))
+    if x1 >= x2 or y1 >= y2:
+        return []
+
+    # ROI mask
+    roi = np.zeros((H, W), dtype=bool)
+    roi[y1:y2, x1:x2] = True
+
+    hsv = cv2.cvtColor(img_np, cv2.COLOR_RGB2HSV)
+    stats = []
+    for i, ann in enumerate(annotations):
+        mask = ann["segmentation"].astype(bool)
+        inter = mask & roi
+        pixels = int(inter.sum())
+        if pixels < min_pixels:
+            continue
+
+        h_vals = hsv[..., 0][inter]
+        s_vals = hsv[..., 1][inter]
+        v_vals = hsv[..., 2][inter]
+        h_mean = int(np.round(h_vals.mean()))
+        s_mean = int(np.round(s_vals.mean()))
+        v_mean = int(np.round(v_vals.mean()))
+        color_class = _name_color_from_hsv(h_mean, s_mean, v_mean)
+
+        stats.append({
+            "id": i,
+            "pixels": pixels,
+            "bbox_xywh": ann.get("bbox", None),
+            "color_class": color_class,
+            "mean_hsv": [h_mean, s_mean, v_mean],
+        })
+    return stats
+
+
 def draw_segment_labels_pil(image, annotations, stats, font_size=14):
-    """Overlay '<class> | <pixels> px' near each segment bbox."""
+    """Overlay '#<id>  <class> | <pixels> px' near each segment bbox."""
     out = image.copy()
     draw = ImageDraw.Draw(out)
     try:
@@ -230,7 +281,6 @@ def fast_process(
                                         interpolation=cv2.INTER_NEAREST)
             contours, _ = cv2.findContours(annotation, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
             contour_all.extend(contours)
-        # avoid zero thickness if "scale" ever becomes 0
         thickness = max(1, int(2 // max(1, scale)))
         cv2.drawContours(temp, contour_all, -1, (255, 255, 255), thickness)
         color = np.array([0 / 255, 0 / 255, 255 / 255, 0.9])

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException, Response
+from fastapi import FastAPI, File, UploadFile, HTTPException, Response, Query
 from PIL import Image
 import io
 import base64
@@ -6,7 +6,11 @@ import json
 import csv
 import zipfile
 
-from main import segment_everything, analyze_segments
+from main import (
+    segment_everything,
+    analyze_segments,
+    analyze_segments_in_bbox0,
+)
 
 app = FastAPI()
 
@@ -19,7 +23,7 @@ async def segment_image(file: UploadFile = File(...)):
     try:
         contents = await file.read()
         image = Image.open(io.BytesIO(contents)).convert("RGB")
-        output_img = segment_everything(image)  # overlay without labels (your original)
+        output_img = segment_everything(image)  # overlay without labels (original)
         buf = io.BytesIO()
         output_img.save(buf, format="PNG")
         return Response(content=buf.getvalue(), media_type="image/png")
@@ -28,7 +32,13 @@ async def segment_image(file: UploadFile = File(...)):
 
 
 @app.post("/segment-image-with-stats")
-async def segment_image_with_stats(file: UploadFile = File(...)):
+async def segment_image_with_stats(
+    file: UploadFile = File(...),
+    inside_bbox0: bool = Query(
+        True,
+        description="If true, stats are computed only inside bbox of segment id=0",
+    ),
+):
     # Return JSON: base64 PNG + segments stats
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File is not an image.")
@@ -36,7 +46,10 @@ async def segment_image_with_stats(file: UploadFile = File(...)):
         contents = await file.read()
         image = Image.open(io.BytesIO(contents)).convert("RGB")
 
-        overlay, stats = analyze_segments(image)
+        if inside_bbox0:
+            overlay, stats = analyze_segments_in_bbox0(image)
+        else:
+            overlay, stats = analyze_segments(image)
 
         # overlay as base64 PNG
         buf = io.BytesIO()
@@ -49,10 +62,15 @@ async def segment_image_with_stats(file: UploadFile = File(...)):
 
 
 @app.post("/segment-image-overlay")
-async def segment_image_overlay(file: UploadFile = File(...)):
+async def segment_image_overlay(
+    file: UploadFile = File(...),
+    inside_bbox0: bool = Query(
+        True,
+        description="If true, labels reflect stats only inside bbox id=0",
+    ),
+):
     """
-    NEW: Return the actual PNG image with labels drawn at their corresponding locations.
-    Useful when you only want the visual output (no JSON).
+    Return the actual PNG image with labels drawn at their corresponding locations.
     """
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File is not an image.")
@@ -60,7 +78,7 @@ async def segment_image_overlay(file: UploadFile = File(...)):
         contents = await file.read()
         image = Image.open(io.BytesIO(contents)).convert("RGB")
 
-        overlay, _stats = analyze_segments(image)
+        overlay, _stats = analyze_segments_in_bbox0(image) if inside_bbox0 else analyze_segments(image)
 
         buf = io.BytesIO()
         overlay.save(buf, format="PNG")
@@ -70,9 +88,15 @@ async def segment_image_overlay(file: UploadFile = File(...)):
 
 
 @app.post("/segment-image-overlay-with-stats")
-async def segment_image_overlay_with_stats(file: UploadFile = File(...)):
+async def segment_image_overlay_with_stats(
+    file: UploadFile = File(...),
+    inside_bbox0: bool = Query(
+        True,
+        description="If true, stats only inside bbox id=0",
+    ),
+):
     """
-    NEW: Return a ZIP containing:
+    Return a ZIP containing:
       - overlay.png       (image with labels)
       - segments.json     (stats as JSON)
       - segments.csv      (stats as CSV)
@@ -83,7 +107,7 @@ async def segment_image_overlay_with_stats(file: UploadFile = File(...)):
         contents = await file.read()
         image = Image.open(io.BytesIO(contents)).convert("RGB")
 
-        overlay, stats = analyze_segments(image)
+        overlay, stats = analyze_segments_in_bbox0(image) if inside_bbox0 else analyze_segments(image)
 
         # Prepare overlay.png
         png_buf = io.BytesIO()
@@ -110,9 +134,7 @@ async def segment_image_overlay_with_stats(file: UploadFile = File(...)):
             z.writestr("segments.csv", csv_bytes)
         zip_buf.seek(0)
 
-        headers = {
-            "Content-Disposition": 'attachment; filename="segmented_bundle.zip"'
-        }
+        headers = {"Content-Disposition": 'attachment; filename="segmented_bundle.zip"'}
         return Response(content=zip_buf.getvalue(), media_type="application/zip", headers=headers)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
