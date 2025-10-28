@@ -150,7 +150,6 @@ def compute_segment_stats_in_bbox(annotations, image_rgb, bbox_xywh, min_pixels=
     Like compute_segment_stats, but only counts pixels INSIDE a given bbox (x,y,w,h).
     Keeps original segment ids. Skips segments with < min_pixels inside the bbox.
     """
-    # Normalize image → numpy RGB
     if hasattr(image_rgb, "convert"):
         img_np = np.array(image_rgb.convert("RGB"))
     else:
@@ -165,7 +164,6 @@ def compute_segment_stats_in_bbox(annotations, image_rgb, bbox_xywh, min_pixels=
     if x1 >= x2 or y1 >= y2:
         return []
 
-    # ROI mask
     roi = np.zeros((H, W), dtype=bool)
     roi[y1:y2, x1:x2] = True
 
