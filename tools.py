@@ -115,6 +115,7 @@ def _name_color_from_hsv(h, s, v):
 def compute_segment_stats(annotations, image_rgb):
     """
     Compute per-segment pixel counts and a coarse color label from mean HSV.
+    Counts over the entire mask area.
     """
     if hasattr(image_rgb, "convert"):
         img_np = np.array(image_rgb.convert("RGB"))
@@ -147,8 +148,8 @@ def compute_segment_stats(annotations, image_rgb):
 
 def compute_segment_stats_in_bbox(annotations, image_rgb, bbox_xywh, min_pixels=1):
     """
-    Like compute_segment_stats, but only counts pixels INSIDE a given bbox (x,y,w,h).
-    Keeps original segment ids. Skips segments with < min_pixels inside the bbox.
+    Counts only pixels INSIDE a single bbox (x,y,w,h). Returns stats for all segments
+    that intersect this bbox (id is the segment id).
     """
     if hasattr(image_rgb, "convert"):
         img_np = np.array(image_rgb.convert("RGB"))
@@ -184,6 +185,58 @@ def compute_segment_stats_in_bbox(annotations, image_rgb, bbox_xywh, min_pixels=
         v_mean = int(np.round(v_vals.mean()))
         color_class = _name_color_from_hsv(h_mean, s_mean, v_mean)
 
+        stats.append({
+            "id": i,
+            "pixels": pixels,
+            "bbox_xywh": ann.get("bbox", None),
+            "color_class": color_class,
+            "mean_hsv": [h_mean, s_mean, v_mean],
+        })
+    return stats
+
+
+def compute_segment_stats_in_bboxes(annotations, image_rgb, bboxes_xywh, min_pixels=1):
+    """
+    Counts pixels INSIDE the UNION of multiple bboxes (list of [x,y,w,h]).
+    Returns stats for all segments that intersect the union ROI.
+    """
+    if hasattr(image_rgb, "convert"):
+        img_np = np.array(image_rgb.convert("RGB"))
+    else:
+        img_np = image_rgb
+
+    H, W = img_np.shape[:2]
+    if not bboxes_xywh:
+        return []
+
+    roi = np.zeros((H, W), dtype=bool)
+    for bbox in bboxes_xywh:
+        if bbox is None:
+            continue
+        x, y, w, h = bbox
+        x1 = max(0, int(round(x))); y1 = max(0, int(round(y)))
+        x2 = min(W, int(round(x + w))); y2 = min(H, int(round(y + h)))
+        if x1 < x2 and y1 < y2:
+            roi[y1:y2, x1:x2] = True
+
+    if not roi.any():
+        return []
+
+    hsv = cv2.cvtColor(img_np, cv2.COLOR_RGB2HSV)
+    stats = []
+    for i, ann in enumerate(annotations):
+        mask = ann["segmentation"].astype(bool)
+        inter = mask & roi
+        pixels = int(inter.sum())
+        if pixels < min_pixels:
+            continue
+        h_vals = hsv[..., 0][inter]
+        s_vals = hsv[..., 1][inter]
+        v_vals = hsv[..., 2][inter]
+        h_mean = int(np.round(h_vals.mean()))
+        s_mean = int(np.round(s_vals.mean()))
+        v_mean = int(np.round(v_vals.mean()))
+        color_class = _name_color_from_hsv(h_mean, s_mean, v_mean)
         stats.append({
             "id": i,
             "pixels": pixels,
@@ -340,10 +393,11 @@ def fast_show_mask_gpu(annotation, ax, random_color=False, bbox=None,
     visual = torch.cat([color, transparency], dim=-1)
     mask_image = torch.unsqueeze(annotation, -1) * visual
 
-    mask = torch.zeros((height, weight, 4), device=device)
     h_indices, w_indices = torch.meshgrid(
         torch.arange(height, device=device), torch.arange(weight, device=device), indexing="ij"
     )
+    index = index.to(device)
+    mask = torch.zeros((height, weight, 4), device=device)
     indices = (index[h_indices, w_indices], h_indices, w_indices, slice(None))
     mask[h_indices, w_indices, :] = mask_image[indices]
 

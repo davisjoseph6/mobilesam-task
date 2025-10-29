@@ -1,19 +1,16 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException, Response, Query
-from fastapi.responses import StreamingResponse
 from PIL import Image
 import io
 import base64
 import json
 import csv
 import zipfile
-import os
 import pathlib
-from typing import List
 
 from main import (
     segment_everything,
     analyze_segments,
-    analyze_segments_in_bbox0,
+    analyze_segments_in_bbox0,   # now implements the "≥75% of box0" union-ROI rule
     batch_process_resources,
     RESOURCES_DIR,
     GENERATED_DIR,
@@ -23,7 +20,7 @@ from main import (
 app = FastAPI()
 
 
-# ----------------- Single-file endpoints (unchanged) -----------------
+# ----------------- Single-file endpoints -----------------
 
 @app.post("/segment-image")
 async def segment_image(file: UploadFile = File(...)):
@@ -33,7 +30,7 @@ async def segment_image(file: UploadFile = File(...)):
     try:
         contents = await file.read()
         image = Image.open(io.BytesIO(contents)).convert("RGB")
-        output_img = segment_everything(image)  # overlay without labels (original)
+        output_img = segment_everything(image)
         buf = io.BytesIO()
         output_img.save(buf, format="PNG")
         return Response(content=buf.getvalue(), media_type="image/png")
@@ -46,7 +43,11 @@ async def segment_image_with_stats(
     file: UploadFile = File(...),
     inside_bbox0: bool = Query(
         True,
-        description="If true, stats are computed only inside bbox of segment id=0",
+        description=(
+            "If true, stats/labels are computed only inside the UNION of all bboxes "
+            "whose area ≥ 75% of box-0's area (the 'large-like-0' rule). "
+            "Otherwise, stats over full masks."
+        ),
     ),
 ):
     # Return JSON: base64 PNG + segments stats
@@ -75,7 +76,10 @@ async def segment_image_overlay(
     file: UploadFile = File(...),
     inside_bbox0: bool = Query(
         True,
-        description="If true, labels reflect stats only inside bbox id=0",
+        description=(
+            "If true, labels reflect stats only inside the 'large-like-0' ROI "
+            "(union of bboxes with area ≥ 75% of box-0)."
+        ),
     ),
 ):
     """Return the actual PNG image with labels drawn at their corresponding locations."""
@@ -99,7 +103,7 @@ async def segment_image_overlay_with_stats(
     file: UploadFile = File(...),
     inside_bbox0: bool = Query(
         True,
-        description="If true, stats only inside bbox id=0",
+        description=("If true, stats only inside 'large-like-0' ROI (≥75% of box-0)."),
     ),
 ):
     """
@@ -116,15 +120,15 @@ async def segment_image_overlay_with_stats(
 
         overlay, stats = analyze_segments_in_bbox0(image) if inside_bbox0 else analyze_segments(image)
 
-        # Prepare overlay.png
+        # overlay.png
         png_buf = io.BytesIO()
         overlay.save(png_buf, format="PNG")
         png_bytes = png_buf.getvalue()
 
-        # Prepare segments.json
+        # segments.json
         json_bytes = json.dumps(stats, ensure_ascii=False, indent=2).encode("utf-8")
 
-        # Prepare segments.csv
+        # segments.csv
         csv_sio = io.StringIO()
         writer = csv.writer(csv_sio)
         writer.writerow(["id", "pixels", "color_class", "bbox_x", "bbox_y", "bbox_w", "bbox_h"])
@@ -147,7 +151,7 @@ async def segment_image_overlay_with_stats(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ----------------- New: batch ingest & download -----------------
+# ----------------- Batch ingest & download -----------------
 
 @app.post("/batch/process-resources")
 async def batch_process(
@@ -157,13 +161,15 @@ async def batch_process(
     ),
     inside_bbox0: bool = Query(
         True,
-        description="If true, stats are computed only inside bbox of segment id=0."
+        description=(
+            "If true, applies the 'large-like-0' ROI rule "
+            "(union of bboxes whose area ≥ 75% of box-0) before computing stats."
+        ),
     ),
 ):
     """
-    Scan resources/train and/or resources/valid for acceptable images,
-    run segmentation on each, and write results into generated/<subset>/.
-    Returns a manifest of processed files and output paths.
+    Scan resources/train and/or resources/valid, run segmentation on each acceptable image,
+    and write results into generated/<subset>/.
     """
     subset = subset.lower()
     if subset == "all":
@@ -180,16 +186,12 @@ async def batch_process(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def _zip_dir_to_stream(root_dir: str, subfolders: List[str]) -> io.BytesIO:
-    """
-    Create an in-memory zip of generated/<subfolder>... for each in subfolders.
-    """
+def _zip_dir_to_stream(root_dir: str, subfolders):
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as z:
         for sub in subfolders:
             base_path = pathlib.Path(root_dir) / sub
             if not base_path.exists():
-                # include a placeholder note so caller knows it was missing
                 z.writestr(f"{sub}/__EMPTY__.txt", "No files found.")
                 continue
             for p in base_path.rglob("*"):
@@ -204,9 +206,6 @@ def _zip_dir_to_stream(root_dir: str, subfolders: List[str]) -> io.BytesIO:
 async def batch_download_subset(
     subset: str = Query(..., description="Which subset to download: 'train' or 'valid'.")
 ):
-    """
-    Stream a ZIP of generated/<subset>.
-    """
     subset = subset.lower()
     if subset not in SUBSETS:
         raise HTTPException(status_code=400, detail="subset must be 'train' or 'valid'")
@@ -221,9 +220,6 @@ async def batch_download_subset(
 
 @app.get("/batch/download-all")
 async def batch_download_all():
-    """
-    Stream a ZIP containing both generated/train and generated/valid (if present).
-    """
     try:
         buf = _zip_dir_to_stream(GENERATED_DIR, list(SUBSETS))
         headers = {"Content-Disposition": 'attachment; filename="generated_all.zip"'}
@@ -238,6 +234,7 @@ async def batch_download_all():
 def read_root():
     return {
         "Hello": "Welcome to MobileSAM segmentation service",
+        "note": "When 'inside_bbox0=true' we use the union of all bboxes with area ≥ 75% of box-0.",
         "single_file_endpoints": [
             "POST /segment-image",
             "POST /segment-image-with-stats?inside_bbox0=true|false",

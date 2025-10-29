@@ -4,7 +4,7 @@ import pathlib
 import json
 import numpy as np
 import torch
-from typing import Iterable, List, Dict, Tuple
+from typing import Iterable, List, Dict
 from mobile_sam import SamAutomaticMaskGenerator, SamPredictor, sam_model_registry
 from PIL import Image
 
@@ -13,6 +13,7 @@ from tools import (
     compute_segment_stats,
     draw_segment_labels_pil,
     compute_segment_stats_in_bbox,
+    compute_segment_stats_in_bboxes,
     get_bbox_from_mask,
 )
 
@@ -21,6 +22,9 @@ RESOURCES_DIR = os.environ.get("RESOURCES_DIR", "resources")
 GENERATED_DIR = os.environ.get("GENERATED_DIR", "generated")
 ACCEPT_EXT = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp"}
 SUBSETS = ("train", "valid")
+
+# Large-like-0 inclusion rule
+BOX0_AREA_RATIO = 0.75  # include bboxes with area >= 75% of box-0 area
 
 # --------- Model setup ----------
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -88,7 +92,7 @@ def analyze_segments(
     use_retina=True,
     mask_random_color=True,
 ):
-    """Return (overlay image with labels, per-segment stats)."""
+    """Return (overlay image with labels, per-segment stats) – counts over full masks."""
     global mask_generator
     input_size = int(input_size)
     w, h = image.size
@@ -117,6 +121,33 @@ def analyze_segments(
     return overlay, stats
 
 
+def _collect_large_like_box0_bboxes(annotations, ratio: float = BOX0_AREA_RATIO) -> List[List[int]]:
+    """
+    From SAM annotations, pick every bbox whose area >= ratio * area(box-0).
+    Returns a list of [x,y,w,h] (at least the box-0 bbox).
+    """
+    if not annotations:
+        return []
+    bbox0 = annotations[0].get("bbox")
+    if bbox0 is None:
+        x1, y1, x2, y2 = get_bbox_from_mask(annotations[0]["segmentation"])
+        bbox0 = [x1, y1, x2 - x1, y2 - y1]
+    _, _, w0, h0 = bbox0
+    area0 = max(1, int(w0) * int(h0))
+
+    keep: List[List[int]] = []
+    for ann in annotations:
+        bb = ann.get("bbox")
+        if bb is None:
+            x1, y1, x2, y2 = get_bbox_from_mask(ann["segmentation"])
+            bb = [x1, y1, x2 - x1, y2 - y1]
+        _, _, w, h = bb
+        area = max(0, int(w) * int(h))
+        if area >= ratio * area0:
+            keep.append(bb)
+    return keep
+
+
 @torch.no_grad()
 def analyze_segments_in_bbox0(
     image,
@@ -127,8 +158,11 @@ def analyze_segments_in_bbox0(
     mask_random_color=True,
 ):
     """
-    Return (overlay image with labels, stats) but ONLY for pixels inside
-    the bbox of segment id=0. Keeps original ids; stats are computed on mask ∩ bbox0.
+    NEW behavior:
+    - Identify all bboxes whose area >= 75% of box-0's bbox area.
+    - Build the ROI as the UNION of these bboxes.
+    - Compute stats ONLY for pixels inside that ROI.
+    - Draw labels only for segments that have >=1 pixel inside the ROI.
     """
     global mask_generator
     input_size = int(input_size)
@@ -144,13 +178,13 @@ def analyze_segments_in_bbox0(
     if not annotations:
         return image_resized, []
 
-    bbox0 = annotations[0].get("bbox")
-    if bbox0 is None:
-        x1, y1, x2, y2 = get_bbox_from_mask(annotations[0]["segmentation"])
-        bbox0 = [x1, y1, x2 - x1, y2 - y1]
+    # gather "large-like-0" bboxes (>= 75% of box0 area)
+    large_bboxes = _collect_large_like_box0_bboxes(annotations, BOX0_AREA_RATIO)
 
-    stats = compute_segment_stats_in_bbox(annotations, image_resized, bbox0)
+    # stats only inside the union of those bboxes
+    stats = compute_segment_stats_in_bboxes(annotations, image_resized, large_bboxes, min_pixels=1)
 
+    # overlay (labels only for ids present in stats)
     overlay = fast_process(
         annotations=annotations,
         image=image_resized,
@@ -187,8 +221,8 @@ def batch_process_resources(
     inside_bbox0: bool = True,
 ) -> Dict[str, List[Dict]]:
     """
-    Process all acceptable images under resources/<subset> and save to generated/<subset>.
-    Returns a manifest: {subset: [ {input, overlay, csv, json}, ... ], ...}
+    Process images under resources/<subset> and save to generated/<subset>.
+    If inside_bbox0=True, applies the new 'large-like-0' ROI rule described above.
     """
     manifest: Dict[str, List[Dict]] = {}
     for subset in subsets:
@@ -203,14 +237,12 @@ def batch_process_resources(
             manifest[subset] = items
             continue
 
-        # iterate recursively
         for p in src_dir.rglob("*"):
             if not p.is_file() or not _is_image_file(p):
                 continue
 
             rel = p.relative_to(src_dir)
             stem = p.stem
-            # output paths mirroring relative structure
             base = out_dir / rel.parent / stem
             overlay_path = str(base) + "_overlay.png"
             csv_path = str(base) + "_segments.csv"
@@ -222,7 +254,6 @@ def batch_process_resources(
             else:
                 overlay, stats = analyze_segments(img)
 
-            # save outputs
             _ensure_dir(os.path.dirname(overlay_path))
             overlay.save(overlay_path)
             _save_stats_csv(stats, csv_path)
@@ -239,7 +270,6 @@ def batch_process_resources(
 
 
 if __name__ == "__main__":
-    # CLI demo: process both train and valid with bbox0 filtering
     _ensure_dir(GENERATED_DIR)
     result = batch_process_resources(subsets=SUBSETS, inside_bbox0=True)
     print(json.dumps(result, indent=2, ensure_ascii=False))
